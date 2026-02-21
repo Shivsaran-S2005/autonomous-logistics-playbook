@@ -4,7 +4,11 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SimulationProvider } from "@/contexts/SimulationContext";
-import { AresLayout } from "@/components/ares/AresLayout";
+import { SiteLayout } from "@/components/site/SiteLayout";
+import DemoPage from "./pages/DemoPage";
+import HomePage from "./pages/HomePage";
+import AboutPage from "./pages/AboutPage";
+import ArchitecturePage from "./pages/ArchitecturePage";
 import OverviewPage from "./pages/OverviewPage";
 import MapPage from "./pages/MapPage";
 import FleetPage from "./pages/FleetPage";
@@ -23,13 +27,18 @@ const App = () => (
       <BrowserRouter>
         <SimulationProvider>
           <Routes>
-            <Route element={<AresLayout />}>
-              <Route path="/" element={<OverviewPage />} />
-              <Route path="/map" element={<MapPage />} />
-              <Route path="/fleet" element={<FleetPage />} />
-              <Route path="/inventory" element={<InventoryPage />} />
-              <Route path="/events" element={<EventsPage />} />
-              <Route path="/ai" element={<AIBrainPage />} />
+            <Route element={<SiteLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/architecture" element={<ArchitecturePage />} />
+              <Route path="/demo" element={<DemoPage />}>
+                <Route index element={<OverviewPage />} />
+                <Route path="map" element={<MapPage />} />
+                <Route path="fleet" element={<FleetPage />} />
+                <Route path="inventory" element={<InventoryPage />} />
+                <Route path="events" element={<EventsPage />} />
+                <Route path="ai" element={<AIBrainPage />} />
+              </Route>
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

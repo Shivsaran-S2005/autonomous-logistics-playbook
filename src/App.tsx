@@ -15,6 +15,7 @@ import FleetPage from "./pages/FleetPage";
 import InventoryPage from "./pages/InventoryPage";
 import EventsPage from "./pages/EventsPage";
 import AIBrainPage from "./pages/AIBrainPage";
+import IssueDetailsPage from "./pages/IssueDetailsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
                 <Route path="inventory" element={<InventoryPage />} />
                 <Route path="events" element={<EventsPage />} />
                 <Route path="ai" element={<AIBrainPage />} />
+                <Route path="issue" element={<IssueDetailsPage />} />
               </Route>
             </Route>
             <Route path="*" element={<NotFound />} />

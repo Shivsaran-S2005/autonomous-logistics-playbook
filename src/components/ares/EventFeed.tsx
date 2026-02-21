@@ -1,4 +1,6 @@
+import { useNavigate } from "react-router-dom";
 import { SimEvent } from "@/simulation/types";
+import { useSpeechAlert } from "@/hooks/useSpeechAlert";
 
 interface EventFeedProps {
   events: SimEvent[];
@@ -21,6 +23,9 @@ const typeBadge: Record<string, { label: string; color: string }> = {
 };
 
 export function EventFeed({ events }: EventFeedProps) {
+  const navigate = useNavigate();
+  useSpeechAlert(events);
+
   return (
     <div className="cyber-panel p-4 h-full flex flex-col">
       <h2 className="font-display text-sm tracking-widest text-neon-cyan text-glow-cyan mb-3">
@@ -29,6 +34,7 @@ export function EventFeed({ events }: EventFeedProps) {
       <div className="flex-1 overflow-y-auto space-y-1.5 scrollbar-none">
         {events.map((evt, i) => {
           const badge = typeBadge[evt.type] || typeBadge.alert;
+          const isError = evt.severity === "critical" || evt.severity === "warning";
           return (
             <div
               key={evt.id}
@@ -43,6 +49,14 @@ export function EventFeed({ events }: EventFeedProps) {
               <span className={severityColors[evt.severity]}>
                 {evt.message}
               </span>
+              {isError && (
+                <button
+                  onClick={() => navigate(`/demo/issue?id=${evt.id}`)}
+                  className="shrink-0 ml-auto border border-neon-red/50 text-neon-red px-1.5 py-0.5 rounded-sm text-[9px] hover:bg-neon-red/10 transition-colors"
+                >
+                  FIX
+                </button>
+              )}
             </div>
           );
         })}

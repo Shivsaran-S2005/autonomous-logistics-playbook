@@ -8,7 +8,7 @@ import { DisruptionControls } from "@/components/ares/DisruptionControls";
 import { TruckStatus } from "@/components/ares/TruckStatus";
 
 const Index = () => {
-  const { world, start, stop, reset, triggerDisruption, clearDisruption } = useSimulation();
+  const { world, start, stop, reset, triggerDisruption, clearDisruption, triggerManualScenario } = useSimulation();
 
   return (
     <div className="min-h-screen bg-background cyber-grid-bg flex flex-col">
@@ -44,6 +44,7 @@ const Index = () => {
           onReset={reset}
           onTriggerDisruption={triggerDisruption}
           onClearDisruption={clearDisruption}
+          onTriggerManualScenario={triggerManualScenario}
         />
       </div>
 

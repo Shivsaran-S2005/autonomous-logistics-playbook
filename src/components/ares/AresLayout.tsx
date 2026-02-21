@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 export function AresLayout() {
-  const { world, start, stop, reset, triggerDisruption, clearDisruption } = useSimulationContext();
+  const { world, start, stop, reset, triggerDisruption, clearDisruption, triggerManualScenario } = useSimulationContext();
   const location = useLocation();
 
   return (
@@ -70,6 +70,7 @@ export function AresLayout() {
           onReset={reset}
           onTriggerDisruption={triggerDisruption}
           onClearDisruption={clearDisruption}
+          onTriggerManualScenario={triggerManualScenario}
         />
       </div>
 

@@ -1,5 +1,7 @@
 import { WorldState } from "@/simulation/types";
 
+type ManualScenario = "stockout" | "supplier_failure" | "dual_supplier" | "network_error";
+
 interface DisruptionControlsProps {
   world: WorldState;
   onStart: () => void;
@@ -7,7 +9,15 @@ interface DisruptionControlsProps {
   onReset: () => void;
   onTriggerDisruption: (type: "supplierFailure" | "roadBlock") => void;
   onClearDisruption: (type: "supplierFailure" | "roadBlock") => void;
+  onTriggerManualScenario?: (scenario: ManualScenario) => void;
 }
+
+const MANUAL_SCENARIOS: { id: ManualScenario; label: string }[] = [
+  { id: "stockout", label: "Stockout" },
+  { id: "supplier_failure", label: "Supplier Fail" },
+  { id: "dual_supplier", label: "Dual Supplier Fail" },
+  { id: "network_error", label: "Network Error" },
+];
 
 export function DisruptionControls({
   world,
@@ -16,6 +26,7 @@ export function DisruptionControls({
   onReset,
   onTriggerDisruption,
   onClearDisruption,
+  onTriggerManualScenario,
 }: DisruptionControlsProps) {
   return (
     <div className="cyber-panel p-4">
@@ -84,6 +95,23 @@ export function DisruptionControls({
           >
             ✓ CLEAR ROAD
           </button>
+        )}
+
+        {onTriggerManualScenario && !world.locked && (
+          <>
+            <div className="w-px bg-border mx-1" />
+            <span className="font-mono text-[9px] text-muted-foreground">MANUAL SCENARIOS:</span>
+            {MANUAL_SCENARIOS.map(({ id, label }) => (
+              <button
+                key={id}
+                onClick={() => onTriggerManualScenario(id)}
+                className="px-3 py-1.5 border border-neon-magenta/50 text-neon-magenta font-mono text-[9px] tracking-wider 
+                  hover:bg-neon-magenta/10 transition-all rounded-sm"
+              >
+                {label}
+              </button>
+            ))}
+          </>
         )}
 
         <div className="ml-auto flex items-center gap-2 font-mono text-xs">

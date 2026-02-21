@@ -14,7 +14,7 @@ const navItems = [
 ];
 
 export default function DemoPage() {
-  const { world, start, stop, reset, triggerDisruption, clearDisruption } = useSimulationContext();
+  const { world, start, stop, reset, triggerDisruption, clearDisruption, triggerManualScenario } = useSimulationContext();
   const location = useLocation();
 
   return (
@@ -75,6 +75,7 @@ export default function DemoPage() {
           onReset={reset}
           onTriggerDisruption={triggerDisruption}
           onClearDisruption={clearDisruption}
+          onTriggerManualScenario={triggerManualScenario}
         />
       </div>
 

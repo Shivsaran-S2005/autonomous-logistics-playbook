@@ -55,6 +55,8 @@ export interface SimEvent {
   type: "order" | "disruption" | "ai_decision" | "delivery" | "alert" | "recovery";
   message: string;
   severity: "info" | "warning" | "critical" | "success";
+  /** Set when an error was resolved by AI or manually; card shows green and status. */
+  resolvedBy?: "ai" | "manual";
 }
 
 export interface AIDecision {
@@ -75,6 +77,8 @@ export interface Metrics {
   uptime: number;
 }
 
+export type SystemMode = "AUTO_MODE" | "MANUAL_MODE";
+
 export interface WorldState {
   suppliers: Supplier[];
   warehouses: Warehouse[];
@@ -87,4 +91,7 @@ export interface WorldState {
   tick: number;
   running: boolean;
   disruptions: { supplierFailure: boolean; roadBlock: boolean };
+  mode: SystemMode;
+  locked: boolean;
+  pendingIssue: SimEvent | null;
 }

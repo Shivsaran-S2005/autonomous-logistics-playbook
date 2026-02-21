@@ -43,6 +43,9 @@ export function createInitialWorld(): WorldState {
     tick: 0,
     running: false,
     disruptions: { supplierFailure: false, roadBlock: false },
+    mode: "AUTO_MODE",
+    locked: false,
+    pendingIssue: null,
   };
 }
 
@@ -94,6 +97,13 @@ function moveTruckToward(truck: typeof createInitialWorld extends () => infer W 
 
 export function simulateTick(prev: WorldState): WorldState {
   const world: WorldState = JSON.parse(JSON.stringify(prev));
+  
+  // If in MANUAL_MODE, freeze all processing
+  if (world.mode === "MANUAL_MODE") {
+    world.tick++;
+    return world;
+  }
+  
   world.tick++;
 
   const speedMod = world.disruptions.roadBlock ? 0.3 : 1;
@@ -143,8 +153,52 @@ export function simulateTick(prev: WorldState): WorldState {
     }
 
     if (wh.inventory <= 0) {
-      addEvent(world, "alert", `⚠ STOCKOUT: ${wh.name} empty!`, "critical");
+      const stockoutEvent: SimEvent = {
+        id: `evt_stockout_${Date.now()}`,
+        timestamp: Date.now(),
+        type: "alert",
+        message: `⚠ STOCKOUT: ${wh.name} empty!`,
+        severity: "critical",
+      };
+      addEvent(world, "alert", stockoutEvent.message, "critical");
       world.metrics.ordersFailed++;
+
+      // AI attempts auto-fix first (no randomness)
+      if (world.mode === "AUTO_MODE" && !world.locked) {
+        const availableSupplier = world.suppliers.find(s => s.active && s.reliability > 0.5);
+        if (availableSupplier) {
+          // AI succeeds: emergency resupply
+          const resupply = 25;
+          wh.inventory = Math.min(wh.maxInventory, wh.inventory + resupply);
+          addEvent(world, "ai_decision", `AI: Auto-fixed ${wh.name} stockout (+${resupply} units)`, "success");
+          addDecision(
+            world,
+            `Auto-fix: Emergency resupply → ${wh.name}`,
+            `Stockout detected. Emergency resupply from ${availableSupplier.name}.`,
+            `+${resupply} units restored`,
+            0.9,
+          );
+          // Mark the stockout event as Resolved by AI (it is at index 1 after unshift of success)
+          const criticalEvt = world.events[1];
+          if (criticalEvt && criticalEvt.severity === "critical") {
+            criticalEvt.resolvedBy = "ai";
+            criticalEvt.severity = "success";
+          }
+        } else {
+          // AI fails - switch to MANUAL_MODE, lock, alert
+          world.mode = "MANUAL_MODE";
+          world.locked = true;
+          world.pendingIssue = world.events[0]; // event just added
+          addEvent(world, "alert", "Manual Mode Activated – Please resolve the issue.", "critical");
+          addDecision(
+            world,
+            `Auto-fix FAILED → Manual Mode`,
+            `No available suppliers for emergency resupply.`,
+            `System locked. Awaiting manual resolution.`,
+            0.0,
+          );
+        }
+      }
     }
   });
 
@@ -152,9 +206,9 @@ export function simulateTick(prev: WorldState): WorldState {
   if (world.disruptions.supplierFailure) {
     world.suppliers[0].reliability = 0.1;
     world.suppliers[0].active = false;
-    
-    // AI reroute
-    if (world.tick % 10 === 0) {
+
+    // AI tries to fix first (no randomness)
+    if (world.mode === "AUTO_MODE" && !world.locked && world.tick % 10 === 0) {
       const altSupplier = world.suppliers.find(s => s.id !== "sup_1" && s.reliability > 0.5);
       if (altSupplier) {
         addDecision(
@@ -163,6 +217,34 @@ export function simulateTick(prev: WorldState): WorldState {
           `${world.suppliers[0].name} failure detected. Reliability: ${(world.suppliers[0].reliability * 100).toFixed(0)}%`,
           `Switched to ${altSupplier.name} (${(altSupplier.reliability * 100).toFixed(0)}% reliable)`,
           0.92,
+        );
+        addEvent(world, "ai_decision", `AI: Rerouted supply to ${altSupplier.name}`, "success");
+        // Mark most recent critical event as Resolved by AI
+        const criticalEvt = world.events.find(e => e.severity === "critical" && (e.type === "disruption" || e.type === "alert"));
+        if (criticalEvt) {
+          criticalEvt.resolvedBy = "ai";
+          criticalEvt.severity = "success";
+        }
+      } else {
+        // AI fails - switch to MANUAL_MODE, lock, alert
+        const failureEvent: SimEvent = {
+          id: `evt_supplier_fail_${Date.now()}`,
+          timestamp: Date.now(),
+          type: "disruption",
+          message: `🔥 CRITICAL: ${world.suppliers[0].name} supplier has FAILED - No alternative available`,
+          severity: "critical",
+        };
+        world.mode = "MANUAL_MODE";
+        world.locked = true;
+        addEvent(world, "disruption", failureEvent.message, "critical");
+        world.pendingIssue = world.events[0]; // event just added
+        addEvent(world, "alert", "Manual Mode Activated – Please resolve the issue.", "critical");
+        addDecision(
+          world,
+          `Auto-reroute FAILED → Manual Mode`,
+          `No alternative suppliers available for rerouting.`,
+          `System locked. Awaiting manual resolution.`,
+          0.0,
         );
       }
     }

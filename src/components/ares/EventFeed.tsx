@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import { SimEvent } from "@/simulation/types";
 import { useSpeechAlert } from "@/hooks/useSpeechAlert";
+import { useSimulationContext } from "@/contexts/SimulationContext";
+import { useManualModeAlert } from "@/hooks/useManualModeAlert";
 
 interface EventFeedProps {
   events: SimEvent[];
@@ -24,17 +26,71 @@ const typeBadge: Record<string, { label: string; color: string }> = {
 
 export function EventFeed({ events }: EventFeedProps) {
   const navigate = useNavigate();
+  const { world, setMode, resolveIssue } = useSimulationContext();
+  
+  // Use regular speech alerts (will be suppressed in manual mode by the hook logic)
   useSpeechAlert(events);
+  
+  // Use manual mode alert when locked in MANUAL_MODE
+  useManualModeAlert(world.locked, world.mode === "MANUAL_MODE");
+
+  const handleResolveIssue = () => {
+    resolveIssue();
+  };
 
   return (
     <div className="cyber-panel p-4 h-full flex flex-col">
-      <h2 className="font-display text-sm tracking-widest text-neon-cyan text-glow-cyan mb-3">
-        // LIVE EVENT FEED
-      </h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="font-display text-sm tracking-widest text-neon-cyan text-glow-cyan">
+          // LIVE EVENT FEED
+        </h2>
+        {/* Mode Toggle */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMode("AUTO_MODE")}
+            className={`font-mono text-[9px] px-2 py-1 border rounded-sm transition-colors ${
+              world.mode === "AUTO_MODE"
+                ? "border-neon-cyan text-neon-cyan bg-neon-cyan/10"
+                : "border-border text-muted-foreground hover:border-neon-cyan/50"
+            }`}
+          >
+            AUTO
+          </button>
+          <button
+            onClick={() => setMode("MANUAL_MODE")}
+            className={`font-mono text-[9px] px-2 py-1 border rounded-sm transition-colors ${
+              world.mode === "MANUAL_MODE"
+                ? "border-neon-yellow text-neon-yellow bg-neon-yellow/10"
+                : "border-border text-muted-foreground hover:border-neon-yellow/50"
+            }`}
+          >
+            MANUAL
+          </button>
+        </div>
+      </div>
+
+      {/* Manual Mode Locked UI – only "Resolve Issue" allowed */}
+      {world.mode === "MANUAL_MODE" && world.locked && world.pendingIssue && (
+        <div className="mb-3 p-3 border border-neon-red/60 bg-neon-red/5 rounded-sm">
+          <div className="font-mono text-[10px] text-neon-red text-glow-red mb-2">
+            Manual intervention required.
+          </div>
+          <button
+            onClick={handleResolveIssue}
+            className="w-full font-mono text-[10px] border border-neon-green/60 text-neon-green px-3 py-1.5 rounded-sm hover:bg-neon-green/10 transition-colors font-semibold"
+          >
+            Resolve Issue
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto space-y-1.5 scrollbar-none">
         {events.map((evt, i) => {
           const badge = typeBadge[evt.type] || typeBadge.alert;
-          const isError = evt.severity === "critical" || evt.severity === "warning";
+          const isResolved = evt.resolvedBy != null;
+          const isError = (evt.severity === "critical" || evt.severity === "warning") && !isResolved;
+          const colorClass = isResolved ? severityColors.success : severityColors[evt.severity];
+          const statusText = evt.resolvedBy === "ai" ? "Resolved by AI" : evt.resolvedBy === "manual" ? "Resolved Manually" : null;
           return (
             <div
               key={evt.id}
@@ -46,10 +102,10 @@ export function EventFeed({ events }: EventFeedProps) {
               <span className={`border px-1 rounded-sm text-[9px] shrink-0 ${badge.color}`}>
                 {badge.label}
               </span>
-              <span className={severityColors[evt.severity]}>
-                {evt.message}
+              <span className={colorClass}>
+                {statusText != null ? statusText : evt.message}
               </span>
-              {isError && (
+              {isError && world.mode !== "MANUAL_MODE" && !world.locked && (
                 <button
                   onClick={() => navigate(`/demo/issue?id=${evt.id}`)}
                   className="shrink-0 ml-auto border border-neon-red/50 text-neon-red px-1.5 py-0.5 rounded-sm text-[9px] hover:bg-neon-red/10 transition-colors"

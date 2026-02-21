@@ -9,6 +9,12 @@ interface SimulationContextType {
   reset: () => void;
   triggerDisruption: (type: "supplierFailure" | "roadBlock") => void;
   clearDisruption: (type: "supplierFailure" | "roadBlock") => void;
+  triggerManualScenario: (scenario: "stockout" | "supplier_failure" | "dual_supplier" | "network_error") => void;
+  setMode: (mode: "AUTO_MODE" | "MANUAL_MODE") => void;
+  resolveIssue: () => void;
+  changeSupplier: () => void;
+  switchServer: () => void;
+  retry: () => void;
 }
 
 const SimulationContext = createContext<SimulationContextType | null>(null);

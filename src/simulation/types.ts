@@ -38,6 +38,18 @@ export interface Truck {
   cargo: number;
   route: string;
   speed: number;
+  /** When set, truck is doing an internal transfer; on arrival target warehouse gets cargo */
+  transferId?: string;
+}
+
+/** Internal transfer: move stock from one warehouse to another (live on map) */
+export interface InternalTransfer {
+  id: string;
+  fromWarehouseId: string;
+  toWarehouseId: string;
+  quantity: number;
+  status: "pending" | "assigned" | "in_transit" | "completed";
+  requestId?: string; // link to retailer request if triggered by resolve
 }
 
 export interface Order {
@@ -85,6 +97,8 @@ export interface WorldState {
   retailers: Retailer[];
   trucks: Truck[];
   orders: Order[];
+  /** Internal transfers (e.g. restock from WH1 to WH2) — show live on map */
+  transfers: InternalTransfer[];
   events: SimEvent[];
   aiDecisions: AIDecision[];
   metrics: Metrics;

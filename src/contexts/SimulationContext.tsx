@@ -15,6 +15,8 @@ interface SimulationContextType {
   changeSupplier: () => void;
   switchServer: () => void;
   retry: () => void;
+  /** Dispatch internal transfer (WH → WH); truck movement shows live on map. */
+  dispatchTransfer: (fromWarehouseId: string, toWarehouseId: string, quantity: number, requestId?: string) => void;
 }
 
 const SimulationContext = createContext<SimulationContextType | null>(null);

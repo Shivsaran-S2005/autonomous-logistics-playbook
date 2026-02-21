@@ -1,6 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { WorldState, SimEvent } from "../simulation/types";
+import { WorldState, SimEvent, InternalTransfer } from "../simulation/types";
 import { createInitialWorld, simulateTick } from "../simulation/engine";
+
+function uid(prefix: string) {
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+}
 
 export function useSimulation() {
   const [world, setWorld] = useState<WorldState>(createInitialWorld);
@@ -21,6 +25,26 @@ export function useSimulation() {
 
   const setMode = useCallback((mode: "AUTO_MODE" | "MANUAL_MODE") => {
     setWorld(prev => ({ ...prev, mode }));
+  }, []);
+
+  const dispatchTransfer = useCallback((
+    fromWarehouseId: string,
+    toWarehouseId: string,
+    quantity: number,
+    requestId?: string
+  ) => {
+    const transfer: InternalTransfer = {
+      id: uid("trans"),
+      fromWarehouseId,
+      toWarehouseId,
+      quantity,
+      status: "pending",
+      requestId,
+    };
+    setWorld(prev => ({
+      ...prev,
+      transfers: [...(prev.transfers || []), transfer],
+    }));
   }, []);
 
   const resolveIssue = useCallback(() => {
@@ -169,11 +193,11 @@ export function useSimulation() {
             id: `evt_manual_supplier_${ts}`,
             timestamp: ts,
             type: "disruption" as const,
-            message: "🔥 CRITICAL: NEXUS CORP supplier has FAILED — No alternative available",
+            message: "🔥 CRITICAL: Cadbury supplier has FAILED — No alternative available",
             severity: "critical" as const,
           },
           events: [
-            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption" as const, message: "🔥 CRITICAL: NEXUS CORP supplier has FAILED", severity: "critical" as const },
+            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption" as const, message: "🔥 CRITICAL: Cadbury supplier has FAILED", severity: "critical" as const },
             { id: `evt_lock_${ts}`, timestamp: ts, type: "alert" as const, message: "🔒 SYSTEM LOCKED: Auto-reroute failed. Manual intervention required.", severity: "critical" as const },
           ],
           worldChanges: (w: WorldState) => {
@@ -190,7 +214,7 @@ export function useSimulation() {
             severity: "critical" as const,
           },
           events: [
-            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption" as const, message: "🔥 CRITICAL: NEXUS CORP and CYBERTEK both FAILED", severity: "critical" as const },
+            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption" as const, message: "🔥 CRITICAL: Cadbury supplier has FAILED", severity: "critical" as const },
             { id: `evt_lock_${ts}`, timestamp: ts, type: "alert" as const, message: "🔒 SYSTEM LOCKED: No suppliers available. Manual intervention required.", severity: "critical" as const },
           ],
           worldChanges: (w: WorldState) => {
@@ -234,7 +258,7 @@ export function useSimulation() {
           timestamp: Date.now(),
           type: "disruption" as const,
           message: type === "supplierFailure"
-            ? "🔥 CRITICAL: NEXUS CORP supplier has FAILED"
+            ? "🔥 CRITICAL: Cadbury supplier has FAILED"
             : "🚧 CRITICAL: Road blockage detected — transport delayed",
           severity: "critical" as const,
         },
@@ -253,7 +277,7 @@ export function useSimulation() {
           timestamp: Date.now(),
           type: "recovery" as const,
           message: type === "supplierFailure"
-            ? "✓ Supplier NEXUS CORP recovered"
+            ? "✓ Cadbury supplier recovered"
             : "✓ Road blockage cleared",
           severity: "success" as const,
         },
@@ -327,5 +351,6 @@ export function useSimulation() {
     changeSupplier,
     switchServer,
     retry,
+    dispatchTransfer,
   };
 }

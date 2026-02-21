@@ -12,7 +12,7 @@ export function MapGrid({ world }: MapGridProps) {
   return (
     <div className="cyber-panel p-4 h-full">
       <h2 className="font-display text-sm tracking-widest text-neon-cyan text-glow-cyan mb-3">
-        // SUPPLY CHAIN MAP
+        // SUPPLY CHAIN MAP — SUPPLIERS & WAREHOUSES
       </h2>
       <div className="relative w-full aspect-square cyber-grid-bg rounded overflow-hidden border border-neon-cyan/20">
         {/* Grid overlay */}

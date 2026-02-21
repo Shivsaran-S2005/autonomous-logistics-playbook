@@ -1,33 +1,33 @@
-import { Outlet, useLocation } from "react-router-dom";
+import { Outlet } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useSimulationContext } from "@/contexts/SimulationContext";
 import { DisruptionControls } from "@/components/ares/DisruptionControls";
-import { Map, Truck, Package, Activity, Brain, LayoutDashboard, Candy } from "lucide-react";
+import { Map, Truck, Package, Activity, Brain, LayoutDashboard, Candy, Inbox, AlertTriangle } from "lucide-react";
 
 const navItems = [
-  { label: "OVERVIEW", path: "/demo", icon: LayoutDashboard },
-  { label: "MAP", path: "/demo/map", icon: Map },
-  { label: "FLEET", path: "/demo/fleet", icon: Truck },
-  { label: "INVENTORY", path: "/demo/inventory", icon: Package },
-  { label: "CADBURY", path: "/demo/cadbury", icon: Candy },
-  { label: "EVENTS", path: "/demo/events", icon: Activity },
-  { label: "AI BRAIN", path: "/demo/ai", icon: Brain },
+  { label: "OVERVIEW", path: "/consumer", icon: LayoutDashboard },
+  { label: "MAP", path: "/consumer/map", icon: Map },
+  { label: "LIVE", path: "/consumer/live", icon: AlertTriangle },
+  { label: "FLEET", path: "/consumer/fleet", icon: Truck },
+  { label: "INVENTORY", path: "/consumer/inventory", icon: Package },
+  { label: "PRODUCTS", path: "/consumer/products", icon: Candy },
+  { label: "REQUESTS", path: "/consumer/requests", icon: Inbox },
+  { label: "EVENTS", path: "/consumer/events", icon: Activity },
+  { label: "AI BRAIN", path: "/consumer/ai", icon: Brain },
 ];
 
-export default function DemoPage() {
+export default function ConsumerPortalLayout() {
   const { world, start, stop, reset, triggerDisruption, clearDisruption, triggerManualScenario } = useSimulationContext();
-  const location = useLocation();
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-background cyber-grid-bg flex flex-col">
-      {/* Terminal header */}
       <header className="border-b border-border px-6 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
           <span className="font-display text-xl text-primary text-glow-cyan tracking-[0.3em]">
-            // SUPPLIER SIDE
+            // SUPPLIER
           </span>
           <span className="font-mono text-[10px] text-muted-foreground tracking-wider hidden md:inline">
-            LIVE DEMO — OPERATIONS & HANDLING
+            LIVE DEMO & MANUAL HANDLING
           </span>
         </div>
         <div className="flex items-center gap-4">
@@ -41,14 +41,13 @@ export default function DemoPage() {
         </div>
       </header>
 
-      {/* Sub-navigation */}
       <nav className="border-b border-border px-4 shrink-0 overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-1">
           {navItems.map(item => (
             <NavLink
               key={item.path}
               to={item.path}
-              end
+              end={item.path === "/consumer"}
               className="flex items-center gap-2 px-4 py-2.5 font-mono text-[11px] tracking-wider border-b-2 border-transparent transition-all hover:text-primary hover:bg-primary/5"
               activeClassName="text-primary text-glow-cyan border-b-2 !border-primary bg-primary/5"
             >
@@ -59,7 +58,6 @@ export default function DemoPage() {
         </div>
       </nav>
 
-      {/* Controls */}
       <div className="px-4 pt-3 shrink-0">
         <DisruptionControls
           world={world}
@@ -72,14 +70,12 @@ export default function DemoPage() {
         />
       </div>
 
-      {/* Page content */}
       <main className="flex-1 p-4 min-h-0">
         <Outlet />
       </main>
 
-      {/* Footer */}
       <footer className="border-t border-border px-6 py-2 flex justify-between font-mono text-[9px] text-muted-foreground shrink-0">
-        <span>[ ARES DIGITAL TWIN — SUPPLY CHAIN INTELLIGENCE ]</span>
+        <span>[ SUPPLIER — LIVE DEMO & MANUAL HANDLING ]</span>
         <span>TICK {world.tick} | {new Date().toLocaleTimeString("en", { hour12: false })}</span>
       </footer>
     </div>

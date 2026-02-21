@@ -7,7 +7,9 @@ const links = [
   { label: "Home", path: "/" },
   { label: "About", path: "/about" },
   { label: "Architecture", path: "/architecture" },
-  { label: "Live Demo", path: "/demo" },
+  { label: "Operations", path: "/demo" },
+  { label: "Supplier", path: "/consumer" },
+  { label: "Portal", path: "/login" },
 ];
 
 export function SiteNavbar() {

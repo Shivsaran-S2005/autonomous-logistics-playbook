@@ -10,12 +10,15 @@ function uid(prefix: string) {
 export function createInitialWorld(): WorldState {
   return {
     suppliers: [
-      { id: "sup_1", name: "NEXUS CORP", pos: { x: 1, y: 1 }, reliability: 0.95, baseReliability: 0.95, active: true },
-      { id: "sup_2", name: "CYBERTEK", pos: { x: 8, y: 0 }, reliability: 0.88, baseReliability: 0.88, active: true },
+      { id: "sup_cadbury", name: "Cadbury", pos: { x: 0, y: 0 }, reliability: 0.95, baseReliability: 0.95, active: true },
+      { id: "sup_nestle", name: "Nestle", pos: { x: 3, y: 0 }, reliability: 0.88, baseReliability: 0.88, active: true },
+      { id: "sup_ferrero", name: "Ferrero", pos: { x: 6, y: 0 }, reliability: 0.92, baseReliability: 0.92, active: true },
+      { id: "sup_mars", name: "Mars", pos: { x: 9, y: 0 }, reliability: 0.85, baseReliability: 0.85, active: true },
     ],
     warehouses: [
-      { id: "wh_1", name: "VAULT ALPHA", pos: { x: 3, y: 4 }, inventory: 80, maxInventory: 120, demandRate: 3 },
-      { id: "wh_2", name: "VAULT BETA", pos: { x: 7, y: 5 }, inventory: 65, maxInventory: 100, demandRate: 2.5 },
+      { id: "wh_1", name: "VAULT ALPHA", pos: { x: 2, y: 4 }, inventory: 80, maxInventory: 120, demandRate: 3 },
+      { id: "wh_2", name: "VAULT BETA", pos: { x: 5, y: 5 }, inventory: 65, maxInventory: 100, demandRate: 2.5 },
+      { id: "wh_3", name: "VAULT GAMMA", pos: { x: 8, y: 4 }, inventory: 55, maxInventory: 90, demandRate: 2 },
     ],
     retailers: [
       { id: "ret_1", name: "SECTOR-7", pos: { x: 1, y: 8 }, demand: 8 },
@@ -23,11 +26,12 @@ export function createInitialWorld(): WorldState {
       { id: "ret_3", name: "AFTERLIFE", pos: { x: 9, y: 7 }, demand: 6 },
     ],
     trucks: [
-      { id: "TRK-01", pos: { x: 3, y: 4 }, target: null, busy: false, cargo: 0, route: "", speed: 0.3 },
-      { id: "TRK-02", pos: { x: 7, y: 5 }, target: null, busy: false, cargo: 0, route: "", speed: 0.25 },
-      { id: "TRK-03", pos: { x: 5, y: 3 }, target: null, busy: false, cargo: 0, route: "", speed: 0.35 },
+      { id: "TRK-01", pos: { x: 2, y: 4 }, target: null, busy: false, cargo: 0, route: "", speed: 0.3 },
+      { id: "TRK-02", pos: { x: 5, y: 5 }, target: null, busy: false, cargo: 0, route: "", speed: 0.25 },
+      { id: "TRK-03", pos: { x: 8, y: 4 }, target: null, busy: false, cargo: 0, route: "", speed: 0.35 },
     ],
     orders: [],
+    transfers: [],
     events: [
       { id: "evt_init", timestamp: Date.now(), type: "alert", message: "[ ARES SYSTEM INITIALIZED ]", severity: "info" },
     ],
@@ -209,7 +213,8 @@ export function simulateTick(prev: WorldState): WorldState {
 
     // AI tries to fix first (no randomness)
     if (world.mode === "AUTO_MODE" && !world.locked && world.tick % 10 === 0) {
-      const altSupplier = world.suppliers.find(s => s.id !== "sup_1" && s.reliability > 0.5);
+      const failedId = world.suppliers[0]?.id;
+      const altSupplier = world.suppliers.find(s => s.id !== failedId && s.reliability > 0.5);
       if (altSupplier) {
         addDecision(
           world,
@@ -255,6 +260,27 @@ export function simulateTick(prev: WorldState): WorldState {
     });
   }
 
+  // Process pending internal transfers (restock WH → WH) — assign truck, show live on map
+  const transfers = world.transfers || [];
+  transfers.forEach(trans => {
+    if (trans.status !== "pending") return;
+    const fromWh = world.warehouses.find(w => w.id === trans.fromWarehouseId);
+    const toWh = world.warehouses.find(w => w.id === trans.toWarehouseId);
+    if (!fromWh || !toWh || fromWh.inventory < trans.quantity) return;
+    const freeTruck = world.trucks.find(t => !t.busy);
+    if (!freeTruck) return;
+    freeTruck.pos = { ...fromWh.pos }; // start at source so map shows live movement to dest
+    freeTruck.busy = true;
+    freeTruck.cargo = trans.quantity;
+    freeTruck.target = { ...toWh.pos };
+    freeTruck.route = `${fromWh.name} → ${toWh.name} (transfer)`;
+    freeTruck.transferId = trans.id;
+    fromWh.inventory -= trans.quantity;
+    trans.status = "in_transit";
+    addEvent(world, "delivery", `Transfer: ${freeTruck.id} ${fromWh.name} → ${toWh.name} (${trans.quantity} units). Watch the map.`, "info");
+    addDecision(world, `Transfer ${trans.quantity} units: ${fromWh.name} → ${toWh.name}`, "Retailer restock request.", `Live movement on map.`, 0.9);
+  });
+
   // Process pending orders — assign trucks
   world.orders.forEach(order => {
     if (order.status === "pending") {
@@ -283,15 +309,26 @@ export function simulateTick(prev: WorldState): WorldState {
     if (truck.busy && truck.target) {
       const arrived = moveTruckToward(truck, truck.target, speedMod);
       if (arrived) {
+        if (truck.transferId) {
+          const trans = (world.transfers || []).find(t => t.id === truck.transferId);
+          const toWh = world.warehouses.find(w => w.id === trans?.toWarehouseId);
+          if (trans && toWh) {
+            toWh.inventory += trans.quantity;
+            trans.status = "completed";
+            addEvent(world, "delivery", `✓ Transfer complete: ${truck.id} delivered ${trans.quantity} units to ${toWh.name}`, "success");
+            addDecision(world, `Transfer completed: ${toWh.name} +${trans.quantity}`, "Retailer request fulfilled.", "Stock replenished.", 0.95);
+          }
+          truck.transferId = undefined;
+        } else {
+          world.metrics.ordersCompleted++;
+          addEvent(world, "delivery", `✓ ${truck.id} delivered. Route: ${truck.route}`, "success");
+        }
         truck.busy = false;
         truck.target = null;
         truck.cargo = 0;
-        world.metrics.ordersCompleted++;
-        addEvent(world, "delivery", `✓ ${truck.id} delivered. Route: ${truck.route}`, "success");
         truck.route = "";
-        
         // Return truck to nearest warehouse
-        const nearestWh = world.warehouses.sort((a, b) => 
+        const nearestWh = world.warehouses.sort((a, b) =>
           distance(truck.pos, a.pos) - distance(truck.pos, b.pos)
         )[0];
         truck.target = { ...nearestWh.pos };

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { SimulationProvider } from "@/contexts/SimulationContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { SiteLayout } from "@/components/site/SiteLayout";
 import DemoPage from "./pages/DemoPage";
 import HomePage from "./pages/HomePage";
@@ -16,6 +17,12 @@ import InventoryPage from "./pages/InventoryPage";
 import EventsPage from "./pages/EventsPage";
 import AIBrainPage from "./pages/AIBrainPage";
 import IssueDetailsPage from "./pages/IssueDetailsPage";
+import CadburyProductsPage from "./pages/CadburyProductsPage";
+import SupplierRequestsPage from "./pages/SupplierRequestsPage";
+import LiveMapFeedPage from "./pages/LiveMapFeedPage";
+import LoginPage from "./pages/LoginPage";
+import ConsumerPortalLayout from "./pages/ConsumerPortalLayout";
+import RetailerDashboardPage from "./pages/RetailerDashboardPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,25 +33,42 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <SimulationProvider>
-          <Routes>
-            <Route element={<SiteLayout />}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="/architecture" element={<ArchitecturePage />} />
-              <Route path="/demo" element={<DemoPage />}>
-                <Route index element={<OverviewPage />} />
-                <Route path="map" element={<MapPage />} />
-                <Route path="fleet" element={<FleetPage />} />
-                <Route path="inventory" element={<InventoryPage />} />
-                <Route path="events" element={<EventsPage />} />
-                <Route path="ai" element={<AIBrainPage />} />
-                <Route path="issue" element={<IssueDetailsPage />} />
+        <AuthProvider>
+          <SimulationProvider>
+            <Routes>
+              <Route element={<SiteLayout />}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/architecture" element={<ArchitecturePage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/consumer" element={<ConsumerPortalLayout />}>
+                  <Route index element={<OverviewPage />} />
+                  <Route path="map" element={<MapPage />} />
+                  <Route path="fleet" element={<FleetPage />} />
+                  <Route path="inventory" element={<InventoryPage />} />
+                  <Route path="products" element={<CadburyProductsPage />} />
+                  <Route path="requests" element={<SupplierRequestsPage />} />
+                  <Route path="live" element={<LiveMapFeedPage />} />
+                  <Route path="events" element={<EventsPage />} />
+                  <Route path="ai" element={<AIBrainPage />} />
+                  <Route path="issue" element={<IssueDetailsPage />} />
+                </Route>
+                <Route path="/retailer" element={<RetailerDashboardPage />} />
+                <Route path="/demo" element={<DemoPage />}>
+                  <Route index element={<OverviewPage />} />
+                  <Route path="map" element={<MapPage />} />
+                  <Route path="fleet" element={<FleetPage />} />
+                  <Route path="inventory" element={<InventoryPage />} />
+                  <Route path="cadbury" element={<CadburyProductsPage />} />
+                  <Route path="events" element={<EventsPage />} />
+                  <Route path="ai" element={<AIBrainPage />} />
+                  <Route path="issue" element={<IssueDetailsPage />} />
+                </Route>
               </Route>
-            </Route>
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </SimulationProvider>
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </SimulationProvider>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

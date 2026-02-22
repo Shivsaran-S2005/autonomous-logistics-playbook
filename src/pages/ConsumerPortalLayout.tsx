@@ -2,10 +2,14 @@ import { Outlet } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useSimulationContext } from "@/contexts/SimulationContext";
 import { DisruptionControls } from "@/components/ares/DisruptionControls";
-import { Map, Truck, Package, Activity, Brain, LayoutDashboard, Candy, Inbox, AlertTriangle } from "lucide-react";
+import { Map, Truck, Package, Activity, Brain, LayoutDashboard, Candy, Inbox, AlertTriangle, BarChart3, Network, FlaskConical, Users, FileQuestion, ScrollText } from "lucide-react";
 
 const navItems = [
   { label: "OVERVIEW", path: "/consumer", icon: LayoutDashboard },
+  { label: "EXECUTIVE", path: "/consumer/executive", icon: LayoutDashboard },
+  { label: "NETWORK", path: "/consumer/network", icon: Network },
+  { label: "SIM LAB", path: "/consumer/simulation-lab", icon: FlaskConical },
+  { label: "AGENTS", path: "/consumer/agents", icon: Users },
   { label: "MAP", path: "/consumer/map", icon: Map },
   { label: "LIVE", path: "/consumer/live", icon: AlertTriangle },
   { label: "FLEET", path: "/consumer/fleet", icon: Truck },
@@ -14,6 +18,9 @@ const navItems = [
   { label: "REQUESTS", path: "/consumer/requests", icon: Inbox },
   { label: "EVENTS", path: "/consumer/events", icon: Activity },
   { label: "AI BRAIN", path: "/consumer/ai", icon: Brain },
+  { label: "EXPLAIN", path: "/consumer/explainability", icon: FileQuestion },
+  { label: "ANALYTICS", path: "/consumer/analytics", icon: BarChart3 },
+  { label: "GOVERNANCE", path: "/consumer/governance", icon: ScrollText },
 ];
 
 export default function ConsumerPortalLayout() {

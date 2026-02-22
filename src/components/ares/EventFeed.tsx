@@ -1,4 +1,4 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { SimEvent } from "@/simulation/types";
 import { useSpeechAlert } from "@/hooks/useSpeechAlert";
 import { useSimulationContext } from "@/contexts/SimulationContext";
@@ -26,7 +26,9 @@ const typeBadge: Record<string, { label: string; color: string }> = {
 
 export function EventFeed({ events }: EventFeedProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { world, setMode, resolveIssue } = useSimulationContext();
+  const issueBase = location.pathname.startsWith("/consumer") ? "/consumer" : location.pathname.startsWith("/demo") ? "/demo" : "/demo";
   
   // Use regular speech alerts (will be suppressed in manual mode by the hook logic)
   useSpeechAlert(events);
@@ -107,7 +109,7 @@ export function EventFeed({ events }: EventFeedProps) {
               </span>
               {isError && world.mode !== "MANUAL_MODE" && !world.locked && (
                 <button
-                  onClick={() => navigate(`/demo/issue?id=${evt.id}`)}
+                  onClick={() => navigate(`${issueBase}/issue?id=${evt.id}`)}
                   className="shrink-0 ml-auto border border-neon-red/50 text-neon-red px-1.5 py-0.5 rounded-sm text-[9px] hover:bg-neon-red/10 transition-colors"
                 >
                   FIX

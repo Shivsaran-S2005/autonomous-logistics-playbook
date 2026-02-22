@@ -1,14 +1,38 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { WorldState, SimEvent, InternalTransfer } from "../simulation/types";
 import { createInitialWorld, simulateTick } from "../simulation/engine";
+import { addGovernanceEntry } from "@/lib/governanceLog";
+
+const ARES_WORLD_STORAGE_KEY = "ares_world_state";
 
 function uid(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
 }
 
+function loadPersistedWorld(): WorldState | null {
+  try {
+    const raw = localStorage.getItem(ARES_WORLD_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as WorldState;
+    if (!parsed || !parsed.suppliers?.length) return null;
+    return { ...parsed, running: false } as WorldState;
+  } catch {
+    return null;
+  }
+}
+
+export type ManualScenario =
+  | "stockout"
+  | "supplier_failure"
+  | "dual_supplier"
+  | "network_error"
+  | "cocoa_shortage"
+  | "peanut_contamination";
+
 export function useSimulation() {
-  const [world, setWorld] = useState<WorldState>(createInitialWorld);
+  const [world, setWorld] = useState<WorldState>(() => loadPersistedWorld() ?? createInitialWorld());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const start = useCallback(() => {
     setWorld(prev => ({ ...prev, running: true }));
@@ -21,10 +45,14 @@ export function useSimulation() {
   const reset = useCallback(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setWorld(createInitialWorld());
+    addGovernanceEntry("reset", "Simulation reset to initial state.");
   }, []);
 
   const setMode = useCallback((mode: "AUTO_MODE" | "MANUAL_MODE") => {
-    setWorld(prev => ({ ...prev, mode }));
+    setWorld(prev => {
+      addGovernanceEntry("mode_change", `Mode set to ${mode}.`, {});
+      return { ...prev, mode };
+    });
   }, []);
 
   const dispatchTransfer = useCallback((
@@ -54,11 +82,13 @@ export function useSimulation() {
       if (idx >= 0) {
         events[idx] = { ...events[idx], resolvedBy: "manual" as const, severity: "success" as const };
       }
+      addGovernanceEntry("manual_resolve", "Manual intervention: issue resolved, system unlocked.", { refId: prev.pendingIssue?.id });
       return {
         ...prev,
         mode: "AUTO_MODE",
         locked: false,
         pendingIssue: null,
+        activeScenario: undefined,
         events: [
           {
             id: `evt_resolved_${Date.now()}`,
@@ -168,21 +198,30 @@ export function useSimulation() {
   }, []);
 
   /** Injects a manual-resolution scenario for testing. AI cannot resolve these. */
-  const triggerManualScenario = useCallback((scenario: "stockout" | "supplier_failure" | "dual_supplier" | "network_error") => {
+  const triggerManualScenario = useCallback((scenario: ManualScenario) => {
+    addGovernanceEntry("scenario_trigger", `Scenario triggered: ${scenario}.`, {});
     setWorld(prev => {
       const ts = Date.now();
-      const scenarios = {
+      const scenarios: Record<
+        ManualScenario,
+        {
+          pendingIssue: SimEvent;
+          events: SimEvent[];
+          worldChanges: (w: WorldState) => void;
+          activeScenario?: WorldState["activeScenario"];
+        }
+      > = {
         stockout: {
           pendingIssue: {
             id: `evt_manual_stockout_${ts}`,
             timestamp: ts,
-            type: "alert" as const,
+            type: "alert",
             message: "⚠ STOCKOUT: VAULT ALPHA empty! AI auto-fix failed.",
-            severity: "critical" as const,
+            severity: "critical",
           },
           events: [
-            { id: `evt_manual_${ts}`, timestamp: ts, type: "alert" as const, message: "⚠ STOCKOUT: VAULT ALPHA empty!", severity: "critical" as const },
-            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert" as const, message: "🔒 SYSTEM LOCKED: Auto-fix failed. Manual intervention required.", severity: "critical" as const },
+            { id: `evt_manual_${ts}`, timestamp: ts, type: "alert", message: "⚠ STOCKOUT: VAULT ALPHA empty!", severity: "critical" },
+            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert", message: "🔒 SYSTEM LOCKED: Auto-fix failed. Manual intervention required.", severity: "critical" },
           ],
           worldChanges: (w: WorldState) => {
             w.warehouses = w.warehouses.map(wh => wh.id === "wh_1" ? { ...wh, inventory: 0 } : wh);
@@ -192,13 +231,13 @@ export function useSimulation() {
           pendingIssue: {
             id: `evt_manual_supplier_${ts}`,
             timestamp: ts,
-            type: "disruption" as const,
+            type: "disruption",
             message: "🔥 CRITICAL: Cadbury supplier has FAILED — No alternative available",
-            severity: "critical" as const,
+            severity: "critical",
           },
           events: [
-            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption" as const, message: "🔥 CRITICAL: Cadbury supplier has FAILED", severity: "critical" as const },
-            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert" as const, message: "🔒 SYSTEM LOCKED: Auto-reroute failed. Manual intervention required.", severity: "critical" as const },
+            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption", message: "🔥 CRITICAL: Cadbury supplier has FAILED", severity: "critical" },
+            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert", message: "🔒 SYSTEM LOCKED: Auto-reroute failed. Manual intervention required.", severity: "critical" },
           ],
           worldChanges: (w: WorldState) => {
             w.disruptions = { ...w.disruptions, supplierFailure: true };
@@ -209,13 +248,13 @@ export function useSimulation() {
           pendingIssue: {
             id: `evt_manual_dual_${ts}`,
             timestamp: ts,
-            type: "disruption" as const,
+            type: "disruption",
             message: "🔥 CRITICAL: All suppliers offline — Dual failure detected",
-            severity: "critical" as const,
+            severity: "critical",
           },
           events: [
-            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption" as const, message: "🔥 CRITICAL: Cadbury supplier has FAILED", severity: "critical" as const },
-            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert" as const, message: "🔒 SYSTEM LOCKED: No suppliers available. Manual intervention required.", severity: "critical" as const },
+            { id: `evt_manual_${ts}`, timestamp: ts, type: "disruption", message: "🔥 CRITICAL: Cadbury supplier has FAILED", severity: "critical" },
+            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert", message: "🔒 SYSTEM LOCKED: No suppliers available. Manual intervention required.", severity: "critical" },
           ],
           worldChanges: (w: WorldState) => {
             w.disruptions = { ...w.disruptions, supplierFailure: true };
@@ -226,15 +265,55 @@ export function useSimulation() {
           pendingIssue: {
             id: `evt_manual_network_${ts}`,
             timestamp: ts,
-            type: "alert" as const,
+            type: "alert",
             message: "⚠ NETWORK ERROR: AI coordination server unreachable",
-            severity: "critical" as const,
+            severity: "critical",
           },
           events: [
-            { id: `evt_manual_${ts}`, timestamp: ts, type: "alert" as const, message: "⚠ NETWORK ERROR: AI coordination server unreachable", severity: "critical" as const },
-            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert" as const, message: "🔒 SYSTEM LOCKED: Manual intervention required.", severity: "critical" as const },
+            { id: `evt_manual_${ts}`, timestamp: ts, type: "alert", message: "⚠ NETWORK ERROR: AI coordination server unreachable", severity: "critical" },
+            { id: `evt_lock_${ts}`, timestamp: ts, type: "alert", message: "🔒 SYSTEM LOCKED: Manual intervention required.", severity: "critical" },
           ],
           worldChanges: () => {},
+        },
+        cocoa_shortage: {
+          pendingIssue: {
+            id: `evt_cocoa_${ts}`,
+            timestamp: ts,
+            type: "disruption",
+            message: "🍫 COCOA SHORTAGE: Cadbury (Cocoa Agent) supply disrupted — manual allocation required.",
+            severity: "critical",
+          },
+          events: [
+            { id: `evt_cocoa_${ts}`, timestamp: ts, type: "disruption", message: "🍫 COCOA SHORTAGE: Cadbury cocoa supply disrupted. Cocoa Agent escalated.", severity: "critical" },
+            { id: `evt_lock_cocoa_${ts}`, timestamp: ts, type: "alert", message: "🔒 SYSTEM LOCKED: Resolve Cocoa Shortage (e.g. allocate from Nestle/Ferrero).", severity: "critical" },
+          ],
+          activeScenario: "cocoa_shortage",
+          worldChanges: (w: WorldState) => {
+            w.disruptions = { ...w.disruptions, supplierFailure: true };
+            w.suppliers = w.suppliers.map((s, i) => i === 0 ? { ...s, active: false, reliability: 0.1 } : s);
+          },
+        },
+        peanut_contamination: {
+          pendingIssue: {
+            id: `evt_peanut_${ts}`,
+            timestamp: ts,
+            type: "disruption",
+            message: "🥜 PEANUT CONTAMINATION: Recall in progress — Peanut Agent isolated affected batch.",
+            severity: "critical",
+          },
+          events: [
+            { id: `evt_peanut_${ts}`, timestamp: ts, type: "disruption", message: "🥜 PEANUT CONTAMINATION: Peanut Agent triggered recall. Affected supplier link paused.", severity: "critical" },
+            { id: `evt_lock_peanut_${ts}`, timestamp: ts, type: "alert", message: "🔒 SYSTEM LOCKED: Confirm recall completion and clear Peanut Contamination.", severity: "critical" },
+          ],
+          activeScenario: "peanut_contamination",
+          worldChanges: (w: WorldState) => {
+            w.disruptions = { ...w.disruptions, roadBlock: true };
+            const mars = w.suppliers.find(s => s.name === "Mars");
+            if (mars) {
+              mars.active = false;
+              mars.reliability = 0.2;
+            }
+          },
         },
       };
       const s = scenarios[scenario];
@@ -244,11 +323,13 @@ export function useSimulation() {
       newWorld.locked = true;
       newWorld.pendingIssue = s.pendingIssue;
       newWorld.events = [...s.events, ...prev.events].slice(0, 50);
+      if (s.activeScenario) newWorld.activeScenario = s.activeScenario;
       return newWorld;
     });
   }, []);
 
   const triggerDisruption = useCallback((type: "supplierFailure" | "roadBlock") => {
+    addGovernanceEntry("disruption_trigger", type === "supplierFailure" ? "Supplier failure triggered." : "Road block triggered.", {});
     setWorld(prev => ({
       ...prev,
       disruptions: { ...prev.disruptions, [type]: true },
@@ -268,22 +349,28 @@ export function useSimulation() {
   }, []);
 
   const clearDisruption = useCallback((type: "supplierFailure" | "roadBlock") => {
-    setWorld(prev => ({
-      ...prev,
-      disruptions: { ...prev.disruptions, [type]: false },
-      events: [
-        {
-          id: `evt_rec_${Date.now()}`,
-          timestamp: Date.now(),
-          type: "recovery" as const,
-          message: type === "supplierFailure"
-            ? "✓ Cadbury supplier recovered"
-            : "✓ Road blockage cleared",
-          severity: "success" as const,
-        },
-        ...prev.events,
-      ].slice(0, 50),
-    }));
+    addGovernanceEntry("disruption_clear", type === "supplierFailure" ? "Supplier restored." : "Road block cleared.", {});
+    setWorld(prev => {
+      const next = {
+        ...prev,
+        disruptions: { ...prev.disruptions, [type]: false },
+        events: [
+          {
+            id: `evt_rec_${Date.now()}`,
+            timestamp: Date.now(),
+            type: "recovery" as const,
+            message: type === "supplierFailure"
+              ? "✓ Cadbury supplier recovered"
+              : "✓ Road blockage cleared",
+            severity: "success" as const,
+          },
+          ...prev.events,
+        ].slice(0, 50),
+      };
+      if (prev.activeScenario && type === "supplierFailure") next.activeScenario = null;
+      if (prev.activeScenario === "peanut_contamination" && type === "roadBlock") next.activeScenario = null;
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -298,6 +385,23 @@ export function useSimulation() {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [world.running]);
+
+  // Persist world to localStorage when not running (debounced)
+  useEffect(() => {
+    if (world.running) return;
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(ARES_WORLD_STORAGE_KEY, JSON.stringify(world));
+      } catch {
+        // ignore quota
+      }
+      saveTimeoutRef.current = null;
+    }, 500);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [world]);
 
   // 40-second manual error cycle: force one ERROR, skip AI, switch to MANUAL_MODE and lock
   const manualCycleIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

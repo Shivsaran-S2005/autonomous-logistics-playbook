@@ -4,7 +4,7 @@ import { MapGrid } from "@/components/ares/MapGrid";
 import { EventFeed } from "@/components/ares/EventFeed";
 import { AIDecisionsPanel } from "@/components/ares/AIDecisionsPanel";
 
-const OverviewPage = () => {
+export default function ExecutiveDashboardPage() {
   const { world } = useSimulationContext();
 
   return (
@@ -23,6 +23,4 @@ const OverviewPage = () => {
       </div>
     </div>
   );
-};
-
-export default OverviewPage;
+}

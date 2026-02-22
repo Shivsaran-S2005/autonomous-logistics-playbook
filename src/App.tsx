@@ -24,6 +24,14 @@ import LoginPage from "./pages/LoginPage";
 import ConsumerPortalLayout from "./pages/ConsumerPortalLayout";
 import RetailerDashboardPage from "./pages/RetailerDashboardPage";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
+import ExecutiveDashboardPage from "./pages/ExecutiveDashboardPage";
+import NetworkViewPage from "./pages/NetworkViewPage";
+import SimulationLabPage from "./pages/SimulationLabPage";
+import AgentMonitorPage from "./pages/AgentMonitorPage";
+import ExplainabilityPage from "./pages/ExplainabilityPage";
+import AnalyticsPage from "./pages/AnalyticsPage";
+import GovernanceLogsPage from "./pages/GovernanceLogsPage";
 
 const queryClient = new QueryClient();
 
@@ -41,8 +49,16 @@ const App = () => (
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/architecture" element={<ArchitecturePage />} />
                 <Route path="/login" element={<LoginPage />} />
+                <Route path="/ares" element={<Index />} />
                 <Route path="/consumer" element={<ConsumerPortalLayout />}>
                   <Route index element={<OverviewPage />} />
+                  <Route path="executive" element={<ExecutiveDashboardPage />} />
+                  <Route path="network" element={<NetworkViewPage />} />
+                  <Route path="simulation-lab" element={<SimulationLabPage />} />
+                  <Route path="agents" element={<AgentMonitorPage />} />
+                  <Route path="explainability" element={<ExplainabilityPage />} />
+                  <Route path="analytics" element={<AnalyticsPage />} />
+                  <Route path="governance" element={<GovernanceLogsPage />} />
                   <Route path="map" element={<MapPage />} />
                   <Route path="fleet" element={<FleetPage />} />
                   <Route path="inventory" element={<InventoryPage />} />
@@ -56,6 +72,13 @@ const App = () => (
                 <Route path="/retailer" element={<RetailerDashboardPage />} />
                 <Route path="/demo" element={<DemoPage />}>
                   <Route index element={<OverviewPage />} />
+                  <Route path="executive" element={<ExecutiveDashboardPage />} />
+                  <Route path="network" element={<NetworkViewPage />} />
+                  <Route path="simulation-lab" element={<SimulationLabPage />} />
+                  <Route path="agents" element={<AgentMonitorPage />} />
+                  <Route path="explainability" element={<ExplainabilityPage />} />
+                  <Route path="analytics" element={<AnalyticsPage />} />
+                  <Route path="governance" element={<GovernanceLogsPage />} />
                   <Route path="map" element={<MapPage />} />
                   <Route path="fleet" element={<FleetPage />} />
                   <Route path="inventory" element={<InventoryPage />} />

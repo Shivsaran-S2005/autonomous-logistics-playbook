@@ -2,16 +2,23 @@ import { Outlet, useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { useSimulationContext } from "@/contexts/SimulationContext";
 import { DisruptionControls } from "@/components/ares/DisruptionControls";
-import { Map, Truck, Package, Activity, Brain, LayoutDashboard, Candy } from "lucide-react";
+import { Map, Truck, Package, Activity, Brain, LayoutDashboard, Candy, Network, FlaskConical, Users, FileQuestion, BarChart3, ScrollText } from "lucide-react";
 
 const navItems = [
   { label: "OVERVIEW", path: "/demo", icon: LayoutDashboard },
+  { label: "EXECUTIVE", path: "/demo/executive", icon: LayoutDashboard },
+  { label: "NETWORK", path: "/demo/network", icon: Network },
+  { label: "SIM LAB", path: "/demo/simulation-lab", icon: FlaskConical },
+  { label: "AGENTS", path: "/demo/agents", icon: Users },
   { label: "MAP", path: "/demo/map", icon: Map },
   { label: "FLEET", path: "/demo/fleet", icon: Truck },
   { label: "INVENTORY", path: "/demo/inventory", icon: Package },
   { label: "CADBURY", path: "/demo/cadbury", icon: Candy },
   { label: "EVENTS", path: "/demo/events", icon: Activity },
   { label: "AI BRAIN", path: "/demo/ai", icon: Brain },
+  { label: "EXPLAIN", path: "/demo/explainability", icon: FileQuestion },
+  { label: "ANALYTICS", path: "/demo/analytics", icon: BarChart3 },
+  { label: "GOVERNANCE", path: "/demo/governance", icon: ScrollText },
 ];
 
 export default function DemoPage() {

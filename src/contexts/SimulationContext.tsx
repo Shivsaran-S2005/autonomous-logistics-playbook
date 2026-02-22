@@ -1,5 +1,5 @@
 import { createContext, useContext, ReactNode } from "react";
-import { useSimulation } from "@/hooks/useSimulation";
+import { useSimulation, type ManualScenario } from "@/hooks/useSimulation";
 import { WorldState } from "@/simulation/types";
 
 interface SimulationContextType {
@@ -9,7 +9,7 @@ interface SimulationContextType {
   reset: () => void;
   triggerDisruption: (type: "supplierFailure" | "roadBlock") => void;
   clearDisruption: (type: "supplierFailure" | "roadBlock") => void;
-  triggerManualScenario: (scenario: "stockout" | "supplier_failure" | "dual_supplier" | "network_error") => void;
+  triggerManualScenario: (scenario: ManualScenario) => void;
   setMode: (mode: "AUTO_MODE" | "MANUAL_MODE") => void;
   resolveIssue: () => void;
   changeSupplier: () => void;

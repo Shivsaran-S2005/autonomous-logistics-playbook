@@ -7,7 +7,9 @@ import {
   getRequestById,
   getSupplierById,
   subscribeToUpdates,
+  refetchRetailerRequests,
 } from "@/data/db";
+import { isSupabaseEnabled } from "@/lib/supabase";
 import type { RetailerRequest } from "@/data/types";
 import {
   enableFromUserGesture,
@@ -65,6 +67,20 @@ export default function SupplierRequestsPage() {
     const unsub = subscribeToUpdates(refresh);
     const fastPoll = setInterval(refresh, REALTIME_POLL_MS);
     const slowPoll = setInterval(refresh, LIVE_FEED_REFRESH_MS);
+    // Supabase: refetch from DB for cross-tab sync (retailer adds in one tab, supplier views in another)
+    if (isSupabaseEnabled()) {
+      refetchRetailerRequests().then(refresh);
+      const supabasePoll = setInterval(
+        () => refetchRetailerRequests().then(refresh),
+        REALTIME_POLL_MS
+      );
+      return () => {
+        unsub();
+        clearInterval(fastPoll);
+        clearInterval(slowPoll);
+        clearInterval(supabasePoll);
+      };
+    }
     return () => {
       unsub();
       clearInterval(fastPoll);

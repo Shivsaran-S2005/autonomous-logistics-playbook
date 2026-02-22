@@ -1,4 +1,4 @@
-import { WorldState, SimEvent, AIDecision } from "./types";
+import { WorldState, SimEvent, AIDecision, type ConfidenceBreakdown, type MetricsSnapshot } from "./types";
 
 let eventCounter = 0;
 let decisionCounter = 0;
@@ -50,6 +50,7 @@ export function createInitialWorld(): WorldState {
     mode: "AUTO_MODE",
     locked: false,
     pendingIssue: null,
+    metricsHistory: [],
   };
 }
 
@@ -65,7 +66,14 @@ function addEvent(world: WorldState, type: SimEvent["type"], message: string, se
   if (world.events.length > 50) world.events.pop();
 }
 
-function addDecision(world: WorldState, action: string, reason: string, impact: string, confidence: number) {
+function addDecision(
+  world: WorldState,
+  action: string,
+  reason: string,
+  impact: string,
+  confidence: number,
+  opts?: { confidenceBreakdown?: ConfidenceBreakdown; riskReduction?: number }
+) {
   decisionCounter++;
   world.aiDecisions.unshift({
     id: `dec_${decisionCounter}`,
@@ -74,6 +82,8 @@ function addDecision(world: WorldState, action: string, reason: string, impact: 
     reason,
     impact,
     confidence,
+    confidenceBreakdown: opts?.confidenceBreakdown,
+    riskReduction: opts?.riskReduction,
   });
   if (world.aiDecisions.length > 20) world.aiDecisions.pop();
   world.metrics.aiInterventions++;
@@ -151,6 +161,10 @@ export function simulateTick(prev: WorldState): WorldState {
           `Inventory at ${Math.round(wh.inventory)}/${wh.maxInventory}. Predicted stockout in ~${Math.floor(Math.random() * 3) + 1} cycles.`,
           `+${resupply} units from ${bestSupplier.name}`,
           0.85 + Math.random() * 0.12,
+          {
+            confidenceBreakdown: { demand: 0.9, supply: 0.85 + Math.random() * 0.1, risk: 0.82, latency: 0.88 },
+            riskReduction: 0.12 + Math.random() * 0.08,
+          }
         );
         addEvent(world, "ai_decision", `AI: Resupplied ${wh.name} (+${resupply}) via ${bestSupplier.name}`, "success");
       }
@@ -181,6 +195,7 @@ export function simulateTick(prev: WorldState): WorldState {
             `Stockout detected. Emergency resupply from ${availableSupplier.name}.`,
             `+${resupply} units restored`,
             0.9,
+            { confidenceBreakdown: { demand: 0.92, supply: 0.9, risk: 0.88, latency: 0.85 }, riskReduction: 0.25 }
           );
           // Mark the stockout event as Resolved by AI (it is at index 1 after unshift of success)
           const criticalEvt = world.events[1];
@@ -222,6 +237,7 @@ export function simulateTick(prev: WorldState): WorldState {
           `${world.suppliers[0].name} failure detected. Reliability: ${(world.suppliers[0].reliability * 100).toFixed(0)}%`,
           `Switched to ${altSupplier.name} (${(altSupplier.reliability * 100).toFixed(0)}% reliable)`,
           0.92,
+          { confidenceBreakdown: { demand: 0.88, supply: 0.92, risk: 0.9, latency: 0.85 }, riskReduction: 0.35 }
         );
         addEvent(world, "ai_decision", `AI: Rerouted supply to ${altSupplier.name}`, "success");
         // Mark most recent critical event as Resolved by AI
@@ -278,7 +294,7 @@ export function simulateTick(prev: WorldState): WorldState {
     fromWh.inventory -= trans.quantity;
     trans.status = "in_transit";
     addEvent(world, "delivery", `Transfer: ${freeTruck.id} ${fromWh.name} → ${toWh.name} (${trans.quantity} units). Watch the map.`, "info");
-    addDecision(world, `Transfer ${trans.quantity} units: ${fromWh.name} → ${toWh.name}`, "Retailer restock request.", `Live movement on map.`, 0.9);
+    addDecision(world, `Transfer ${trans.quantity} units: ${fromWh.name} → ${toWh.name}`, "Retailer restock request.", `Live movement on map.`, 0.9, { confidenceBreakdown: { demand: 0.88, supply: 0.9, risk: 0.85, latency: 0.9 }, riskReduction: 0.1 });
   });
 
   // Process pending orders — assign trucks
@@ -316,7 +332,7 @@ export function simulateTick(prev: WorldState): WorldState {
             toWh.inventory += trans.quantity;
             trans.status = "completed";
             addEvent(world, "delivery", `✓ Transfer complete: ${truck.id} delivered ${trans.quantity} units to ${toWh.name}`, "success");
-            addDecision(world, `Transfer completed: ${toWh.name} +${trans.quantity}`, "Retailer request fulfilled.", "Stock replenished.", 0.95);
+            addDecision(world, `Transfer completed: ${toWh.name} +${trans.quantity}`, "Retailer request fulfilled.", "Stock replenished.", 0.95, { confidenceBreakdown: { demand: 0.95, supply: 0.95, risk: 0.92, latency: 0.95 }, riskReduction: 0.2 });
           }
           truck.transferId = undefined;
         } else {
@@ -355,6 +371,7 @@ export function simulateTick(prev: WorldState): WorldState {
       "Road blockage detected. Estimated delay: +200%",
       "Alternative routes calculated. ETA adjusted.",
       0.78,
+      { confidenceBreakdown: { demand: 0.75, supply: 0.8, risk: 0.78, latency: 0.7 }, riskReduction: 0.15 }
     );
   }
 
@@ -363,6 +380,15 @@ export function simulateTick(prev: WorldState): WorldState {
   world.metrics.uptime = totalOrders > 0 
     ? Math.round((world.metrics.ordersCompleted / totalOrders) * 100) 
     : 100;
+
+  // Rolling metrics history for Analytics (every tick when running)
+  if (!world.metricsHistory) world.metricsHistory = [];
+  world.metricsHistory.unshift({
+    tick: world.tick,
+    timestamp: Date.now(),
+    metrics: { ...world.metrics },
+  });
+  if (world.metricsHistory.length > 60) world.metricsHistory.pop();
 
   return world;
 }

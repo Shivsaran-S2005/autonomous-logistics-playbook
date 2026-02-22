@@ -1,6 +1,20 @@
-// Multi-supplier in-memory database: seed data and query API.
-// Tables: Suppliers, Products, Deliveries, Retailers, Logs.
+// Multi-supplier database: in-memory fallback OR Supabase-backed (when env configured).
+// Tables: Suppliers, Products, Deliveries, Retailers, Logs, etc.
 
+import { isSupabaseEnabled } from "@/lib/supabase";
+import {
+  getCache,
+  initSupabaseDb,
+  refetchRetailerRequests,
+  subscribeToUpdates as subscribeSupabase,
+  supabaseAddRetailerRequest,
+  supabaseResolveRequest,
+  supabaseAddLiveFeedEntry,
+  supabaseUpdateFeedEntryStatus,
+  supabaseUpdateDeliveryStatus,
+  supabaseUpdateProductStock,
+  supabaseAddSupplyShift,
+} from "./db-supabase";
 import type {
   Supplier,
   Product,
@@ -14,6 +28,24 @@ import type {
   DeliveryStatus,
   ProductCategory,
 } from "./types";
+
+/** Initialize Supabase-backed DB (fetch from remote). Call once at app startup. */
+export async function initDb(): Promise<void> {
+  await initSupabaseDb();
+}
+
+/** Refetch retailer requests from Supabase (for supplier page cross-tab sync). */
+export { refetchRetailerRequests };
+
+// Data source: Supabase cache when enabled, else in-memory
+const _suppliers = () => (isSupabaseEnabled() ? getCache().suppliers : suppliers);
+const _products = () => (isSupabaseEnabled() ? getCache().products : products);
+const _retailers = () => (isSupabaseEnabled() ? getCache().retailers : retailers);
+const _deliveries = () => (isSupabaseEnabled() ? getCache().deliveries : deliveries);
+const _retailerRequests = () => (isSupabaseEnabled() ? getCache().retailerRequests : retailerRequests);
+const _liveFeed = () => (isSupabaseEnabled() ? getCache().liveFeed : liveFeed);
+const _supplyShifts = () => (isSupabaseEnabled() ? getCache().supplyShifts : supplyShifts);
+const _logs = () => (isSupabaseEnabled() ? getCache().logs : logs);
 
 function uid(prefix: string) {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -423,6 +455,7 @@ const supplyShifts: SupplyShift[] = [];
 type Listener = () => void;
 const listeners: Set<Listener> = new Set();
 export function subscribeToUpdates(cb: Listener) {
+  if (isSupabaseEnabled()) return subscribeSupabase(cb);
   listeners.add(cb);
   return () => listeners.delete(cb);
 }
@@ -433,11 +466,11 @@ function notify() {
 // ============ QUERIES & OPERATIONS ============
 
 export function getSuppliers(): Supplier[] {
-  return suppliers.filter((s) => s.activeStatus);
+  return _suppliers().filter((s) => s.activeStatus);
 }
 
 export function getSupplierById(id: string): Supplier | undefined {
-  return suppliers.find((s) => s.supplierId === id);
+  return _suppliers().find((s) => s.supplierId === id);
 }
 
 export function addRetailerRequest(input: {
@@ -450,6 +483,7 @@ export function addRetailerRequest(input: {
   quantity?: number;
   message: string;
 }): RetailerRequest {
+  if (isSupabaseEnabled()) return supabaseAddRetailerRequest(input);
   const req: RetailerRequest = {
     requestId: uid("req"),
     ...input,
@@ -463,24 +497,24 @@ export function addRetailerRequest(input: {
 }
 
 export function getRetailerRequests(retailerId: string): RetailerRequest[] {
-  return retailerRequests.filter((r) => r.retailerId === retailerId);
+  return _retailerRequests().filter((r) => r.retailerId === retailerId);
 }
 
 /** All requests (for supplier dashboard) — retailer and supplier linked */
 export function getAllRequests(): RetailerRequest[] {
-  return [...retailerRequests].sort(
+  return [..._retailerRequests()].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
 }
 
 export function getRequestById(requestId: string): RetailerRequest | undefined {
-  return retailerRequests.find((r) => r.requestId === requestId);
+  return _retailerRequests().find((r) => r.requestId === requestId);
 }
 
 // ============ LIVE FEED & SUPPLY SHIFTS ============
 
 export function getLiveFeedEntries(): LiveFeedEntry[] {
-  return [...liveFeed].sort(
+  return [..._liveFeed()].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 }
@@ -495,6 +529,7 @@ export function addLiveFeedEntry(input: {
   message: string;
   aiSuggestion?: string;
 }): LiveFeedEntry {
+  if (isSupabaseEnabled()) return supabaseAddLiveFeedEntry(input);
   const entry: LiveFeedEntry = {
     feedId: uid("feed"),
     ...input,
@@ -507,7 +542,7 @@ export function addLiveFeedEntry(input: {
 }
 
 export function getFeedEntryById(feedId: string): LiveFeedEntry | undefined {
-  return liveFeed.find((e) => e.feedId === feedId);
+  return _liveFeed().find((e) => e.feedId === feedId);
 }
 
 export function updateFeedEntryStatus(
@@ -515,6 +550,7 @@ export function updateFeedEntryStatus(
   status: "Resolved",
   resolutionNote?: string
 ): LiveFeedEntry | undefined {
+  if (isSupabaseEnabled()) return supabaseUpdateFeedEntryStatus(feedId, status, resolutionNote);
   const e = liveFeed.find((x) => x.feedId === feedId);
   if (!e) return undefined;
   e.status = status;
@@ -527,7 +563,7 @@ export function updateFeedEntryStatus(
 /** Supplier IDs that have at least one Active feed entry (for map red points). */
 export function getSupplierIdsWithActiveErrors(): Set<string> {
   const set = new Set<string>();
-  for (const e of liveFeed) {
+  for (const e of _liveFeed()) {
     if (e.status === "Active") set.add(e.supplierId);
   }
   return set;
@@ -541,6 +577,7 @@ export function addSupplyShift(input: {
   quantity: number;
   feedId?: string;
 }): SupplyShift {
+  if (isSupabaseEnabled()) return supabaseAddSupplyShift(input);
   const shift: SupplyShift = {
     shiftId: uid("shift"),
     ...input,
@@ -554,7 +591,7 @@ export function addSupplyShift(input: {
 
 /** Recent shifts for map flow animation (e.g. last 10). */
 export function getRecentSupplyShifts(): SupplyShift[] {
-  return [...supplyShifts]
+  return [..._supplyShifts()]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .slice(0, 10);
 }
@@ -566,12 +603,12 @@ export function getAlternateSupplierForProduct(
 ): Supplier | undefined {
   const product = productId ? getProductById(productId) : null;
   const category = product?.category;
-  return suppliers.find(
+  return _suppliers().find(
     (s) =>
       s.supplierId !== excludeSupplierId &&
       s.activeStatus &&
       (category
-        ? products.some((p) => p.supplierId === s.supplierId && p.category === category)
+        ? _products().some((p) => p.supplierId === s.supplierId && p.category === category)
         : true)
   );
 }
@@ -581,6 +618,7 @@ export function resolveRequest(
   resolutionNote: string,
   resolvedBy: "ai" | "manual"
 ): RetailerRequest | undefined {
+  if (isSupabaseEnabled()) return supabaseResolveRequest(requestId, resolutionNote, resolvedBy);
   const r = retailerRequests.find((x) => x.requestId === requestId);
   if (!r) return undefined;
   r.status = "Resolved";
@@ -607,7 +645,7 @@ export function getProducts(filters?: {
   type?: ProductCategory;
   inStockOnly?: boolean;
 }): Product[] {
-  let list = [...products];
+  let list = [..._products()];
   if (filters?.supplierId) list = list.filter((p) => p.supplierId === filters.supplierId);
   if (filters?.type) list = list.filter((p) => p.type === filters.type);
   if (filters?.inStockOnly) list = list.filter((p) => p.quantityInStock > 0);
@@ -615,12 +653,12 @@ export function getProducts(filters?: {
 }
 
 export function getProductById(id: string): Product | undefined {
-  return products.find((p) => p.productId === id);
+  return _products().find((p) => p.productId === id);
 }
 
 export function searchProducts(query: string): Product[] {
   const q = query.toLowerCase();
-  return products.filter(
+  return _products().filter(
     (p) =>
       p.name.toLowerCase().includes(q) ||
       p.sku.toLowerCase().includes(q) ||
@@ -640,6 +678,7 @@ export function addProduct(input: Omit<Product, "productId" | "updatedAt">): Pro
 }
 
 export function updateProductStock(productId: string, quantity: number): Product | undefined {
+  if (isSupabaseEnabled()) return supabaseUpdateProductStock(productId, quantity);
   const p = products.find((x) => x.productId === productId);
   if (!p) return undefined;
   p.quantityInStock = Math.max(0, quantity);
@@ -660,19 +699,19 @@ export function updateProduct(
 }
 
 export function getDeliveries(): Delivery[] {
-  return [...deliveries];
+  return [..._deliveries()];
 }
 
 export function getDeliveriesByRetailer(retailerId: string): Delivery[] {
-  return deliveries.filter((d) => d.retailerId === retailerId);
+  return _deliveries().filter((d) => d.retailerId === retailerId);
 }
 
 export function getDeliveriesByProduct(productId: string): Delivery[] {
-  return deliveries.filter((d) => d.productId === productId);
+  return _deliveries().filter((d) => d.productId === productId);
 }
 
 export function getDeliveryById(deliveryId: string): Delivery | undefined {
-  return deliveries.find((d) => d.deliveryId === deliveryId);
+  return _deliveries().find((d) => d.deliveryId === deliveryId);
 }
 
 export function updateDeliveryStatus(
@@ -681,6 +720,7 @@ export function updateDeliveryStatus(
   currentLocation?: string,
   eta?: string
 ): Delivery | undefined {
+  if (isSupabaseEnabled()) return supabaseUpdateDeliveryStatus(deliveryId, status, currentLocation, eta);
   const d = deliveries.find((x) => x.deliveryId === deliveryId);
   if (!d) return undefined;
   d.status = status;
@@ -697,11 +737,11 @@ export function updateDeliveryStatus(
 }
 
 export function getRetailerByEmail(email: string): Retailer | undefined {
-  return retailers.find((r) => r.email.toLowerCase() === email.toLowerCase());
+  return _retailers().find((r) => r.email.toLowerCase() === email.toLowerCase());
 }
 
 export function getRetailerById(id: string): Retailer | undefined {
-  return retailers.find((r) => r.retailerId === id);
+  return _retailers().find((r) => r.retailerId === id);
 }
 
 export function validateRetailerLogin(email: string, password: string): Retailer | null {
@@ -722,9 +762,9 @@ export function addLog(entry: Omit<ActionLog, "actionId" | "timestamp">): Action
 
 // --- Consumer delivery view (high-level) ---
 export function getConsumerDeliveryViews(): import("./types").ConsumerDeliveryView[] {
-  const supMap = new Map(suppliers.map((s) => [s.supplierId, s.name]));
-  const prodMap = new Map(products.map((p) => [p.productId, p.name]));
-  return deliveries.map((d) => {
+  const supMap = new Map(_suppliers().map((s) => [s.supplierId, s.name]));
+  const prodMap = new Map(_products().map((p) => [p.productId, p.name]));
+  return _deliveries().map((d) => {
     const productName = prodMap.get(d.productId) ?? "Product";
     const statusText =
       d.status === "delivered"
@@ -748,9 +788,9 @@ export function getRetailerDeliveryViews(retailerId: string): import("./types").
   const r = getRetailerById(retailerId);
   if (!r) return [];
   const allowed = r.authorizedSupplierIds;
-  const prodMap = new Map(products.map((p) => [p.productId, p]));
-  const supMap = new Map(suppliers.map((s) => [s.supplierId, s.name]));
-  return deliveries
+  const prodMap = new Map(_products().map((p) => [p.productId, p]));
+  const supMap = new Map(_suppliers().map((s) => [s.supplierId, s.name]));
+  return _deliveries()
     .filter((d) => d.retailerId === retailerId && allowed.includes(d.supplierId))
     .map((d) => {
       const p = prodMap.get(d.productId);
@@ -773,7 +813,7 @@ export function getRetailerDeliveryViews(retailerId: string): import("./types").
 // --- Analytics ---
 export function getDeliveriesPerRegion(): import("./types").DeliveriesPerRegionReport[] {
   const byRegion = new Map<string, { total: number; delivered: number; inTransit: number; delayed: number }>();
-  for (const d of deliveries) {
+  for (const d of _deliveries()) {
     const r = getRetailerById(d.retailerId);
     const region = r?.region ?? "Unknown";
     const cur = byRegion.get(region) ?? { total: 0, delivered: 0, inTransit: 0, delayed: 0 };
@@ -793,8 +833,8 @@ export function getDeliveriesPerRegion(): import("./types").DeliveriesPerRegionR
 }
 
 export function getStockLevelsReport(): import("./types").StockLevelsReport[] {
-  const supMap = new Map(suppliers.map((s) => [s.supplierId, s.name]));
-  return products.map((p) => ({
+  const supMap = new Map(_suppliers().map((s) => [s.supplierId, s.name]));
+  return _products().map((p) => ({
     productId: p.productId,
     productName: p.name,
     supplierName: supMap.get(p.supplierId) ?? "",
@@ -808,17 +848,17 @@ export function getStockLevelsReport(): import("./types").StockLevelsReport[] {
 export function getSupplierPerformanceReport(): import("./types").SupplierPerformanceReport[] {
   const delivered = new Map<string, number>();
   const total = new Map<string, number>();
-  for (const d of deliveries) {
+  for (const d of _deliveries()) {
     total.set(d.supplierId, (total.get(d.supplierId) ?? 0) + 1);
     if (d.status === "delivered") delivered.set(d.supplierId, (delivered.get(d.supplierId) ?? 0) + 1);
   }
-  return suppliers.filter((s) => s.activeStatus).map((s) => ({
+  return _suppliers().filter((s) => s.activeStatus).map((s) => ({
     supplierId: s.supplierId,
     supplierName: s.name,
     totalDeliveries: total.get(s.supplierId) ?? 0,
     onTimeRate: total.get(s.supplierId)
       ? ((delivered.get(s.supplierId) ?? 0) / (total.get(s.supplierId) ?? 1)) * 100
       : 0,
-    activeProducts: products.filter((p) => p.supplierId === s.supplierId).length,
+    activeProducts: _products().filter((p) => p.supplierId === s.supplierId).length,
   }));
 }

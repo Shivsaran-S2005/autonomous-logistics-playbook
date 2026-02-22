@@ -71,6 +71,14 @@ export interface SimEvent {
   resolvedBy?: "ai" | "manual";
 }
 
+/** Confidence breakdown by factor (e.g. demand, supply, risk) — for explainability */
+export interface ConfidenceBreakdown {
+  demand?: number;
+  supply?: number;
+  risk?: number;
+  latency?: number;
+}
+
 export interface AIDecision {
   id: string;
   timestamp: number;
@@ -78,6 +86,10 @@ export interface AIDecision {
   reason: string;
   impact: string;
   confidence: number;
+  /** Per-factor confidence for explainability */
+  confidenceBreakdown?: ConfidenceBreakdown;
+  /** Risk reduction percentage (e.g. 0.15 = 15% risk reduced) */
+  riskReduction?: number;
 }
 
 export interface Metrics {
@@ -91,6 +103,16 @@ export interface Metrics {
 
 export type SystemMode = "AUTO_MODE" | "MANUAL_MODE";
 
+/** Named scenario preset (Cocoa Shortage, Peanut Contamination) */
+export type NamedScenario = "cocoa_shortage" | "peanut_contamination" | null;
+
+/** Snapshot for charts (tick + metrics) */
+export interface MetricsSnapshot {
+  tick: number;
+  timestamp: number;
+  metrics: Metrics;
+}
+
 export interface WorldState {
   suppliers: Supplier[];
   warehouses: Warehouse[];
@@ -102,10 +124,14 @@ export interface WorldState {
   events: SimEvent[];
   aiDecisions: AIDecision[];
   metrics: Metrics;
+  /** Rolling history for Analytics charts (last N ticks) */
+  metricsHistory?: MetricsSnapshot[];
   tick: number;
   running: boolean;
   disruptions: { supplierFailure: boolean; roadBlock: boolean };
   mode: SystemMode;
   locked: boolean;
   pendingIssue: SimEvent | null;
+  /** Active named scenario for UI (node states, edge delay styling) */
+  activeScenario?: NamedScenario;
 }

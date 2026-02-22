@@ -1,4 +1,4 @@
-import { useSimulation } from "@/hooks/useSimulation";
+import { useSimulationContext } from "@/contexts/SimulationContext";
 import { MapGrid } from "@/components/ares/MapGrid";
 import { InventoryPanel } from "@/components/ares/InventoryPanel";
 import { EventFeed } from "@/components/ares/EventFeed";
@@ -8,7 +8,7 @@ import { DisruptionControls } from "@/components/ares/DisruptionControls";
 import { TruckStatus } from "@/components/ares/TruckStatus";
 
 const Index = () => {
-  const { world, start, stop, reset, triggerDisruption, clearDisruption, triggerManualScenario } = useSimulation();
+  const { world, start, stop, reset, triggerDisruption, clearDisruption, triggerManualScenario } = useSimulationContext();
 
   return (
     <div className="min-h-screen bg-background cyber-grid-bg flex flex-col">
@@ -50,7 +50,7 @@ const Index = () => {
 
       {/* Metrics */}
       <div className="px-4 pt-3">
-        <MetricsPanel metrics={world.metrics} />
+        <MetricsPanel metrics={world.metrics} showExport />
       </div>
 
       {/* Main grid */}

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { useSimulationContext } from "@/contexts/SimulationContext";
@@ -12,6 +12,7 @@ import {
   addRetailerRequest,
   getRetailerRequests,
   subscribeToUpdates,
+  getProductById,
 } from "@/data/db";
 import type { RetailerDeliveryView } from "@/data/types";
 import { LiveDeliveryFeed } from "@/components/supply-chain/LiveDeliveryFeed";
@@ -23,8 +24,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { AlertTriangle, Download, MessageSquare, Send, Building2, Activity, CheckCircle } from "lucide-react";
+import { AlertTriangle, Download, MessageSquare, Send, Building2, Activity, CheckCircle, Volume2 } from "lucide-react";
 import { toast } from "sonner";
+import { enableFromUserGesture, isVoiceEnabled, speakRetailerResolved } from "@/lib/voiceAlerts";
 
 const SUPPLIER_DETAIL_CADBURY = {
   sup_cadbury: {
@@ -48,6 +50,21 @@ export default function RetailerDashboardPage() {
   const [requestMessage, setRequestMessage] = useState("");
   const [requestQuantity, setRequestQuantity] = useState("");
   const [requests, setRequests] = useState<ReturnType<typeof getRetailerRequests>>([]);
+  const announcedResolvedRef = useRef<Set<string>>(new Set());
+  const RESOLVED_RECENT_MS = 120_000;
+
+  // Voice: when a request becomes Resolved (supplier resolved it), announce to retailer
+  useEffect(() => {
+    if (!retailer || !isVoiceEnabled()) return;
+    for (const req of requests) {
+      if (req.status !== "Resolved" || announcedResolvedRef.current.has(req.requestId)) continue;
+      announcedResolvedRef.current.add(req.requestId);
+      const resolvedAgo = req.resolvedAt ? Date.now() - new Date(req.resolvedAt).getTime() : Infinity;
+      if (resolvedAgo > RESOLVED_RECENT_MS) continue;
+      const productName = req.productName ?? (req.productId ? getProductById(req.productId)?.name : null) ?? "—";
+      speakRetailerResolved(productName ?? "—", req.message || "—");
+    }
+  }, [requests, retailer]);
 
   useEffect(() => {
     if (role !== "retailer" || !retailer) {
@@ -401,9 +418,17 @@ export default function RetailerDashboardPage() {
           {/* Your requests & resolutions — updates in real time when supplier resolves */}
           {requests.length > 0 && (
             <Card className="border-border">
-              <CardHeader className="py-2">
-                <CardTitle className="text-xs font-mono">YOUR REQUESTS & RESOLUTIONS</CardTitle>
-                <p className="text-[10px] text-muted-foreground font-mono">Updates in real time when supplier resolves</p>
+              <CardHeader className="py-2 flex flex-row items-start justify-between gap-2">
+                <div>
+                  <CardTitle className="text-xs font-mono">YOUR REQUESTS & RESOLUTIONS</CardTitle>
+                  <p className="text-[10px] text-muted-foreground font-mono">Updates in real time when supplier resolves. Voice: hear when your issue is resolved.</p>
+                </div>
+                {!isVoiceEnabled() && (
+                  <Button variant="outline" size="sm" className="font-mono text-[10px] shrink-0" onClick={() => enableFromUserGesture("Voice enabled. You will hear when your issues are resolved.")}>
+                    <Volume2 className="w-3 h-3 mr-1" /> Enable voice
+                  </Button>
+                )}
+                {isVoiceEnabled() && <span className="font-mono text-[10px] text-muted-foreground shrink-0 flex items-center gap-1"><Volume2 className="w-3 h-3" /> Voice on</span>}
               </CardHeader>
               <CardContent className="py-2 space-y-2 max-h-40 overflow-y-auto">
                 {requests.slice(0, 8).map((r) => (

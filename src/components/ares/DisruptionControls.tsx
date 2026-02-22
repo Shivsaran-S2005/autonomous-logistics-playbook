@@ -1,6 +1,5 @@
 import { WorldState } from "@/simulation/types";
-
-type ManualScenario = "stockout" | "supplier_failure" | "dual_supplier" | "network_error";
+import type { ManualScenario } from "@/hooks/useSimulation";
 
 interface DisruptionControlsProps {
   world: WorldState;
@@ -15,8 +14,10 @@ interface DisruptionControlsProps {
 const MANUAL_SCENARIOS: { id: ManualScenario; label: string }[] = [
   { id: "stockout", label: "Stockout" },
   { id: "supplier_failure", label: "Supplier Fail" },
-  { id: "dual_supplier", label: "Dual Supplier Fail" },
+  { id: "dual_supplier", label: "Dual Fail" },
   { id: "network_error", label: "Network Error" },
+  { id: "cocoa_shortage", label: "Cocoa Shortage" },
+  { id: "peanut_contamination", label: "Peanut Contamination" },
 ];
 
 export function DisruptionControls({

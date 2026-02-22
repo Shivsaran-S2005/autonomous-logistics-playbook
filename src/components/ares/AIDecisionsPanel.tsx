@@ -35,6 +35,19 @@ export function AIDecisionsPanel({ decisions }: AIDecisionsPanelProps) {
             <p className="font-mono text-[11px] text-neon-green leading-tight">
               → {dec.impact}
             </p>
+            {dec.riskReduction != null && dec.riskReduction > 0 && (
+              <p className="font-mono text-[10px] text-neon-cyan">
+                Risk reduced: {(dec.riskReduction * 100).toFixed(0)}%
+              </p>
+            )}
+            {dec.confidenceBreakdown && (
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 font-mono text-[9px] text-muted-foreground">
+                {dec.confidenceBreakdown.demand != null && <span>demand: {(dec.confidenceBreakdown.demand * 100).toFixed(0)}%</span>}
+                {dec.confidenceBreakdown.supply != null && <span>supply: {(dec.confidenceBreakdown.supply * 100).toFixed(0)}%</span>}
+                {dec.confidenceBreakdown.risk != null && <span>risk: {(dec.confidenceBreakdown.risk * 100).toFixed(0)}%</span>}
+                {dec.confidenceBreakdown.latency != null && <span>latency: {(dec.confidenceBreakdown.latency * 100).toFixed(0)}%</span>}
+              </div>
+            )}
             <span className="font-mono text-[9px] text-muted-foreground">
               {new Date(dec.timestamp).toLocaleTimeString("en", { hour12: false })}
             </span>

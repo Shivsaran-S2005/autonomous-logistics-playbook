@@ -135,6 +135,14 @@ export function speakNewRequestWithDetails(
 }
 
 /**
+ * Retailer-side: "Your issue was resolved. Product: [X], Message: [M]."
+ * Call when retailer dashboard detects a request moved to Resolved (e.g. from supplier).
+ */
+export function speakRetailerResolved(productName: string, message: string): void {
+  speak(`Your issue was resolved. Product: ${productName}. Message: ${message}.`);
+}
+
+/**
  * Resolve alert: "Issue resolved for Product: [X], Message: [M], Retailer notified"
  * Always queued so alerts never overlap; plays after any current or queued new-request alerts.
  */
